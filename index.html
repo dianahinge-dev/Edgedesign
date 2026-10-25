@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Soft furniture generator — prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9ECEF; --panel:#FFFFFF; --ink:#1F2B3A; --muted:#66717F; --line:#D5DAE0;
+  --accent:#9A6B1F; --accent-ink:#FFFFFF; --chip:#F2F4F6; --stage:#DDE2E7;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#151A21; --panel:#1D242D; --ink:#E6EAEF; --muted:#9AA4B1; --line:#2E3742;
+    --accent:#D9A54A; --accent-ink:#1A1408; --chip:#252D37; --stage:#11161C;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151A21; --panel:#1D242D; --ink:#E6EAEF; --muted:#9AA4B1; --line:#2E3742;
+  --accent:#D9A54A; --accent-ink:#1A1408; --chip:#252D37; --stage:#11161C;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:"Archivo",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:15px;line-height:1.45}
+.app{display:grid;grid-template-columns:340px 1fr;height:100%}
+aside{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:22px 22px 32px}
+h1{font-size:21px;font-weight:700;margin:0 0 4px;letter-spacing:-.01em}
+.intro{color:var(--muted);margin:0 0 20px;font-size:14px}
+section{padding:16px 0;border-top:1px solid var(--line)}
+h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:inherit;font-size:13px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);
+  background:var(--chip);color:var(--ink);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 10px;margin:8px 0}
+.row label{font-size:13px;color:var(--muted)}
+.step{display:flex;align-items:center;gap:4px}
+.step button{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:var(--chip);color:var(--ink);font:inherit;font-size:15px;line-height:1;cursor:pointer;padding:0}
+.step input{width:64px;font:inherit;font-size:13px;font-variant-numeric:tabular-nums;text-align:right;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);-moz-appearance:textfield}
+.step input::-webkit-outer-spin-button,.step input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.step .u{font-size:12px;color:var(--muted);min-width:20px}
+.row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent)}
+.swatches{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sw{width:30px;height:30px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink)}
+.swatches input[type=color]{width:30px;height:30px;border:none;padding:0;background:none;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.export{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select{font:inherit;font-size:13px;padding:7px 8px;border-radius:8px;border:1px solid var(--line);background:var(--chip);color:var(--ink)}
+.primary{font:inherit;font-weight:600;font-size:14px;padding:9px 16px;border-radius:8px;border:none;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.note{font-size:12.5px;color:var(--muted);margin:10px 0 0}
+#msg{font-size:13px;margin:8px 0 0;min-height:1em}
+main{position:relative;background:var(--stage);min-height:0}
+#stage{position:absolute;inset:0}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.dims{position:absolute;left:18px;bottom:16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:8px 12px;font-size:14px;font-variant-numeric:tabular-nums}
+.dims span{color:var(--muted);font-size:12px;display:block}
+.hint{position:absolute;right:18px;bottom:16px;font-size:12px;color:var(--muted)}
+.plan{width:100%;height:auto;display:block;background:var(--chip);border:1px solid var(--line);border-radius:10px;touch-action:none;user-select:none}
+.plan .foot{fill:none;stroke:var(--muted);stroke-dasharray:6 5;stroke-width:1.5}
+.plan .shp{fill:var(--panel);stroke:var(--ink);stroke-width:1.5;cursor:grab}
+.plan .shp.sel{fill:var(--accent);fill-opacity:.35;stroke:var(--accent);stroke-width:2.5}
+.plan text{fill:var(--muted);font-size:11px;font-family:inherit}
+.shapeList{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.shapeList button{font:inherit;font-size:12.5px;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:var(--chip);color:var(--ink);cursor:pointer}
+.shapeList button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.editor{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:6px}
+.editor .head{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:14px}
+.editor .head div{display:flex;gap:6px}
+.ghost{font:inherit;font-size:12.5px;padding:4px 9px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+@media (max-width:820px){
+  .app{grid-template-columns:1fr;grid-template-rows:52vh auto;height:auto;min-height:100%}
+  main{order:-1;min-height:52vh}
+  aside{border-right:none;border-top:1px solid var(--line);overflow:visible}
+  .hint{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>Soft furniture generator</h1>
+    <p class="intro">Set the numbers, get a soft-furniture model sized to real dimensions, then export it for Live Home 3D. No AI involved — every shape comes from the values below.</p>
+
+    <section><h2>Start from</h2><div class="seg" id="type"></div><p class="note" style="margin-top:8px">Presets only set starting values — every number below can be changed.</p></section>
+    <section id="sizeSec"><h2>Overall size</h2><div id="size"></div></section>
+    <section id="countSec"><h2>Cushion layout</h2><div id="counts"></div></section>
+    <section id="tubSec"><h2>Tub shell</h2><p class="note" style="margin:0 0 6px">Heights are measured from the floor, like a wall with a start and end height.</p><div id="tubRows"></div></section>
+    <section id="armSec"><h2>Arms</h2><div class="seg" id="arm"></div><div id="armRows"></div></section>
+    <section id="backSec"><h2>Back</h2><div class="seg" id="back"></div></section>
+    <section id="cushSec"><h2>Cushions</h2><div id="cush"></div></section>
+    <section id="legSec"><h2 id="legHead">Legs</h2><div class="seg" id="leg"></div><div id="legRows"></div><div class="seg" id="finish" style="margin-top:10px"></div></section>
+    <section id="shapeSec"><h2>Shapes</h2>
+      <p class="note" style="margin:0 0 8px">Add soft shapes on their own or on top of a product. Drag them in the plan below; set height and size with the sliders.</p>
+      <div class="seg" id="addShape"></div>
+      <div class="shapeList" id="shapeList"></div>
+      <svg class="plan" id="plan" viewBox="0 0 300 220" aria-label="Plan view: drag shapes to position them"></svg>
+      <div id="editor"></div>
+    </section>
+    <section><h2>Fabric</h2><div class="swatches" id="fabric"></div></section>
+    <section>
+      <h2>Export for Live Home 3D</h2>
+      <div class="export">
+        <select id="unit" aria-label="Export units">
+          <option value="m" selected>Metres (Live Home 3D)</option>
+          <option value="cm">Centimetres</option>
+          <option value="mm">Millimetres</option>
+        </select>
+        <button class="primary" id="exportBtn">Download OBJ</button>
+      </div>
+      <p id="msg" role="status"></p>
+      <p class="note">Downloads a zip with an .obj and .mtl file. Each part is named (seat cushions, arms, legs, your shapes), so you can recolour them separately after import. Live Home 3D reads OBJ files as metres, so keep that setting for it; the other units are for other programs.</p>
+    </section>
+  </aside>
+  <main>
+    <div id="stage"></div>
+    <div class="dims" id="dims"></div>
+    <div class="hint">Drag to orbit · scroll to zoom</div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function(){
+const PRESETS = {
+  armchair:{label:'Armchair', W:850, D:860, H:820, armH:620, armW:150, legH:150, baseH:140, cushT:150, seats:1, backs:1},
+  sofa2:{label:'2-seater', W:1700, D:900, H:820, armH:620, armW:160, legH:150, baseH:140, cushT:150, seats:2, backs:2},
+  sofa3:{label:'3-seater', W:2250, D:920, H:820, armH:620, armW:170, legH:150, baseH:140, cushT:150, seats:3, backs:3},
+  tub:{label:'Tub chair', W:760, D:740, legH:140, baseH:190, cushT:110, tubStart:620, tubMid:780, tubEnd:620, wrap:230, shellT:120, bow:60},
+  custom:{label:'Custom'},
+  ottoman:{label:'Ottoman', W:700, D:600, legH:120, baseH:160, cushT:150}
+};
+const FABRICS = [
+  ['Charcoal','#3F4246'],['Oat','#CDBFA6'],['Sage','#8E9E86'],['Navy','#2E3D57'],
+  ['Rust','#9C4F2E'],['Mustard','#C79A2E'],['Blush','#D9A9A0'],['Forest','#2F4A3A']
+];
+const FINISHES = {
+  oak:{label:'Oak', color:'#B5895A', metal:0, rough:.7},
+  walnut:{label:'Walnut', color:'#5C3E2A', metal:0, rough:.7},
+  black:{label:'Black steel', color:'#2A2A2C', metal:.6, rough:.45},
+  chrome:{label:'Chrome', color:'#C9CDD2', metal:.95, rough:.22}
+};
+
+const state = Object.assign({type:'sofa2', arm:'track', back:'cushions', leg:'tapered', finish:'oak',
+  cushT:150, baseH:140, soft:40, puff:18, fabric:'#8E9E86', seats:2, backs:2,
+  tubStart:620, tubMid:780, tubEnd:620, wrap:230, shellT:120, bow:60, armH:620, armW:160, backT:170}, PRESETS.sofa2);
+const isTub = ()=>state.type==='tub', isOtt = ()=>state.type==='ottoman', isCustom = ()=>state.type==='custom';
+state.shapes = []; state.sel = null; let shapeSeq = 0;
+
+/* ---------- UI ---------- */
+const inputs = {};
+function seg(el, options, key, onChange){
+  el.innerHTML = '';
+  Object.entries(options).forEach(([val,label])=>{
+    const b = document.createElement('button'); b.type='button'; b.textContent = label;
+    b.setAttribute('aria-pressed', state[key]===val);
+    b.onclick = ()=>{ state[key]=val; [...el.children].forEach(c=>c.setAttribute('aria-pressed', c===b)); onChange && onChange(val); update(); };
+    el.appendChild(b);
+  });
+}
+/* A labelled row: − [number] + stepper plus a slider, both kept in sync.
+   Typed numbers apply when you press Enter or leave the box, so half-typed values never reach the model. */
+function makeRow(label, min, max, step, unit, get, set){
+  const row = document.createElement('div'); row.className='row';
+  row.innerHTML = `<label>${label}</label><div class="step"><button type="button" aria-label="Decrease ${label}">−</button><input type="number" inputmode="numeric" min="${min}" max="${max}" step="${step}" aria-label="${label}"><button type="button" aria-label="Increase ${label}">+</button><span class="u">${unit.trim()}</span></div><input type="range" min="${min}" max="${max}" step="${step}" aria-label="${label} slider">`;
+  const [dec, inc] = row.querySelectorAll('.step button'), num = row.querySelector('input[type=number]'), range = row.querySelector('input[type=range]');
+  const apply = v=>{ if(!isFinite(v)) { refresh(); return; } v = Math.min(max, Math.max(min, Math.round(v/step)*step)); set(v); refresh(); };
+  const refresh = ()=>{ range.value = get(); if(document.activeElement!==num) num.value = get(); };
+  range.oninput = ()=>{ set(+range.value); num.value = get(); };
+  num.onchange = ()=> apply(parseFloat(num.value));
+  num.onkeydown = e=>{ if(e.key==='Enter'){ num.blur(); } };
+  num.onblur = ()=>{ num.value = get(); };
+  dec.onclick = ()=> apply(get() - step);
+  inc.onclick = ()=> apply(get() + step);
+  refresh();
+  return {row, refresh};
+}
+function slider(parent, key, label, min, max, step, unit){
+  const r = makeRow(label, min, max, step, unit===undefined ? ' mm' : unit, ()=>state[key], v=>{ state[key]=v; update(); });
+  parent.appendChild(r.row);
+  inputs[key] = {row:r.row, refresh:r.refresh};
+}
+
+seg(document.getElementById('type'), Object.fromEntries(Object.entries(PRESETS).map(([k,v])=>[k,v.label])), 'type', t=>{
+  const p = Object.assign({}, PRESETS[t]); delete p.label;
+  Object.assign(state, p);
+  syncInputs(); refit = true;
+});
+const size = document.getElementById('size');
+slider(size,'W','Width',400,3200,10);
+slider(size,'D','Depth',400,1400,10);
+slider(size,'H','Overall height',250,1200,10);
+slider(size,'baseH','Base height (under the cushion)',30,400,5);
+const seatRead = document.createElement('p'); seatRead.className = 'note'; size.appendChild(seatRead);
+const counts = document.getElementById('counts');
+slider(counts,'seats','Seat cushions',1,6,1,'');
+slider(counts,'backs','Back cushions',1,6,1,'');
+const tubRows = document.getElementById('tubRows');
+slider(tubRows,'tubStart','Height at left end',400,1300,10);
+slider(tubRows,'tubMid','Height at centre back',400,1300,10);
+slider(tubRows,'tubEnd','Height at right end',400,1300,10);
+slider(tubRows,'wrap','How far it wraps around',160,320,5,'°');
+slider(tubRows,'shellT','Shell thickness',50,260,5);
+slider(tubRows,'bow','Seat front curve',0,160,5);
+seg(document.getElementById('arm'), {none:'None', track:'Track', slim:'Slim', rolled:'Rolled'}, 'arm', a=>{
+  if(a==='slim') state.armW = 70;
+  else if(a!=='none' && state.armW < 90) state.armW = 150;
+});
+const armRows = document.getElementById('armRows');
+slider(armRows,'armH','Arm height',300,1000,5);
+slider(armRows,'armW','Arm thickness',30,300,5);
+seg(document.getElementById('back'), {cushions:'Loose cushions', tight:'Tight back', thin:'Thin back'}, 'back', b=>{
+  state.backT = {cushions:170, tight:210, thin:80}[b];
+});
+slider(document.getElementById('backSec'),'backT','Back thickness',30,350,5);
+const cush = document.getElementById('cush');
+slider(cush,'cushT','Seat cushion thickness',60,260,5);
+slider(cush,'soft','Corner softness',2,90,1,'');
+slider(cush,'puff','Puffiness',0,45,1,'');
+seg(document.getElementById('leg'), {tapered:'Tapered', block:'Block', sled:'Sled', plinth:'Plinth'}, 'leg');
+slider(document.getElementById('legRows'),'legH','Leg height',20,300,5);
+seg(document.getElementById('finish'), Object.fromEntries(Object.entries(FINISHES).map(([k,v])=>[k,v.label])), 'finish');
+
+const fab = document.getElementById('fabric');
+FABRICS.forEach(([name,hex])=>{
+  const b = document.createElement('button'); b.className='sw'; b.type='button';
+  b.style.background = hex; b.title = name; b.setAttribute('aria-label', name); b.dataset.hex = hex;
+  b.setAttribute('aria-pressed', state.fabric===hex);
+  b.onclick = ()=>{ state.fabric = hex; markFabric(); update(); };
+  fab.appendChild(b);
+});
+const picker = document.createElement('input'); picker.type='color'; picker.value = state.fabric;
+picker.setAttribute('aria-label','Custom fabric colour');
+picker.oninput = ()=>{ state.fabric = picker.value; markFabric(); update(); };
+fab.appendChild(picker);
+function markFabric(){ [...fab.querySelectorAll('.sw')].forEach(b=>b.setAttribute('aria-pressed', b.dataset.hex===state.fabric)); }
+
+function syncInputs(){ Object.values(inputs).forEach(i=>i.refresh()); }
+const show = (el, on)=>{ el.style.display = on ? '' : 'none'; };
+
+/* keep values physically sensible */
+function normalize(){
+  const ott = isOtt(), tub = isTub();
+  state.legH = Math.min(state.legH, 300);
+  state.seatH = state.legH + state.baseH + state.cushT;   // seat height is built up: legs + base + cushion
+  const cus = isCustom();
+  if(cus){ /* shapes only */ }
+  else if(ott){
+    state.H = state.seatH;
+    state.D = Math.max(state.D, 300);
+  } else if(tub){
+    ['tubStart','tubMid','tubEnd'].forEach(k=> state[k] = Math.max(state[k], state.seatH+40));
+    state.H = Math.max(state.tubStart, state.tubMid, state.tubEnd);
+    state.W = Math.max(state.W, 500); state.D = Math.max(state.D, 500);
+    state.shellT = Math.min(state.shellT, Math.floor(Math.min(state.W, state.D)/4));
+  } else {
+    state.H = Math.max(state.H, state.seatH+250);
+    state.armH = Math.min(Math.max(state.armH, state.seatH+60), state.H);
+    const n = Math.max(state.seats, state.back==='cushions' ? state.backs : 1);
+    const aw = state.arm==='none' ? 0 : state.armW;
+    state.backT = Math.min(state.backT, state.D - 300);
+    state.W = Math.max(state.W, n*300 + 2*aw);
+    state.D = Math.max(state.D, 600);
+  }
+  syncInputs();
+  seatRead.textContent = ott ? `Overall height ${state.H} mm = legs + base + cushion.` : `Seat height ${state.seatH} mm = legs ${state.legH} + base ${state.baseH} + cushion ${state.cushT}.`;
+  ['sizeSec','cushSec'].forEach(id=>show(document.getElementById(id), !cus));
+  show(document.getElementById('leg'), !cus); show(document.getElementById('legRows'), !cus);
+  document.getElementById('legHead').textContent = cus ? 'Wood and metal finish' : 'Legs';
+  show(document.getElementById('armSec'), !ott && !tub && !cus);
+  show(document.getElementById('backSec'), !ott && !tub && !cus);
+  show(document.getElementById('countSec'), !ott && !tub && !cus);
+  show(document.getElementById('tubSec'), tub);
+  show(inputs.backs.row, state.back==='cushions');
+  show(inputs.H.row, !tub && !ott);
+  show(inputs.armH.row, state.arm!=='none');
+  show(inputs.armW.row, state.arm!=='none');
+}
+
+/* ---------- 3D ---------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+camera.position.set(2.6, 1.6, 3.2);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI*0.495;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f96, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+sun.position.set(2.5, 4, 3); sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera, {left:-3,right:3,top:3,bottom:-3,near:.5,far:12});
+sun.shadow.radius = 4;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(-3,2,-1); scene.add(fill);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.ShadowMaterial({opacity:.22}));
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+
+const root = new THREE.Group(); root.scale.setScalar(0.001); scene.add(root); // build in mm
+let model = new THREE.Group(); root.add(model);
+
+const fabricMat = new THREE.MeshStandardMaterial({roughness:.92, metalness:0}); fabricMat.name='fabric';
+const frameMat = new THREE.MeshStandardMaterial({roughness:.95, metalness:0}); frameMat.name='fabric_frame';
+const legMat = new THREE.MeshStandardMaterial(); legMat.name='legs';
+
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+/* Rounded, optionally puffed box. disc=true squashes the footprint into an ellipse. */
+function roundedBox(w,h,d,r,puff,seg,axis,disc){
+  const g = new THREE.BoxGeometry(w,h,d,seg,seg,seg);
+  const p = g.attributes.position, hw=w/2, hh=h/2, hd=d/2;
+  r = Math.max(0.5, Math.min(r, hw-0.5, hh-0.5, hd-0.5));
+  const v = new THREE.Vector3(), inn = new THREE.Vector3(), n = new THREE.Vector3();
+  const spread = t=>Math.sin(t*Math.PI/2);
+  for(let i=0;i<p.count;i++){
+    v.fromBufferAttribute(p,i);
+    v.set(hw*spread(v.x/hw), hh*spread(v.y/hh), hd*spread(v.z/hd));
+    inn.set(clamp(v.x,-hw+r,hw-r), clamp(v.y,-hh+r,hh-r), clamp(v.z,-hd+r,hd-r));
+    n.subVectors(v,inn);
+    if(n.lengthSq()>0) v.copy(inn).add(n.normalize().multiplyScalar(r));
+    if(puff>0){
+      if(axis==='z'){
+        const f = Math.max(0,1-(v.x/hw)**2)*Math.max(0,1-(v.y/hh)**2);
+        v.z += puff*f*(v.z/hd);
+      } else {
+        const f = disc ? Math.max(0,1-(v.x/hw)**2-(v.z/hd)**2) : Math.max(0,1-(v.x/hw)**2)*Math.max(0,1-(v.z/hd)**2);
+        v.y += puff*f*(v.y/hh);
+      }
+    }
+    if(disc){
+      const u = v.x/hw, s = v.z/hd;
+      v.x = hw*u*Math.sqrt(Math.max(0,1-s*s/2));
+      v.z = hd*s*Math.sqrt(Math.max(0,1-u*u/2));
+    }
+    p.setXYZ(i,v.x,v.y,v.z);
+  }
+  g.deleteAttribute('normal'); g.deleteAttribute('uv');
+  const m = THREE.BufferGeometryUtils.mergeVertices(g, 0.01);
+  m.computeVertexNormals();
+  return m;
+}
+
+/* Tub shell geometry. The shell is a padded wall swept along part of an ellipse,
+   its height blended start → centre → end (like a wall with start and end heights).
+   The ellipse is sized so the shell reaches from the back of the footprint to near the front. */
+function tubLayout(W, D, t, wrapDeg, bow){
+  const phi = wrapDeg*Math.PI/180, th0 = -Math.PI/2 - phi/2, the = -Math.PI/2 + phi/2;
+  const a = W/2 - t/2;
+  const b = Math.max(80, (D - bow - t/2) / Math.max(0.25, 1 + Math.sin(the)));
+  const zc = -D/2 + t/2 + b;
+  // fine arc-length table along the centreline
+  const F = 2000, tab = [{th:th0, l:0}];
+  let px = a*Math.cos(th0), pz = b*Math.sin(th0);
+  for(let i=1;i<=F;i++){
+    const th = th0 + phi*i/F, x = a*Math.cos(th), z = b*Math.sin(th);
+    tab.push({th, l: tab[i-1].l + Math.hypot(x-px, z-pz)}); px=x; pz=z;
+  }
+  const Lt = tab[F].l;
+  const thAt = l => { let lo=0, hi=F; while(hi-lo>1){ const m=(lo+hi)>>1; if(tab[m].l<l) lo=m; else hi=m; }
+    const f = (l-tab[lo].l)/Math.max(1e-9, tab[hi].l-tab[lo].l); return tab[lo].th + (tab[hi].th-tab[lo].th)*f; };
+  const at = l => { const th = thAt(l), x=a*Math.cos(th), z=b*Math.sin(th);
+    const nx=Math.cos(th)/a, nz=Math.sin(th)/b, nl=Math.hypot(nx,nz); return {x, z:z+zc, nx:nx/nl, nz:nz/nl}; };
+  return {a, b, zc, Lt, at};
+}
+
+function tubShell(lay, t, yb, hs, hm, he, r, puff){
+  const S = 8, A = 7, E = 14, MID = 110, endR = Math.min(t/2, lay.Lt/4);
+  const Ls = [];
+  for(let j=0;j<E;j++) Ls.push(endR*(1-Math.cos(Math.PI/2*j/E)));
+  for(let j=0;j<=MID;j++) Ls.push(endR + (lay.Lt-2*endR)*j/MID);
+  for(let j=E-1;j>=0;j--) Ls.push(lay.Lt - endR*(1-Math.cos(Math.PI/2*j/E)));
+  const ease = (x0,x1,k)=> x0 + (x1-x0)*(1-Math.cos(Math.PI*k))/2;
+  const hAt = s => s<=0.5 ? ease(hs,hm,s*2) : ease(hm,he,(s-0.5)*2);
+  const pos = []; let P = 0;
+  Ls.forEach(l=>{
+    const d = Math.min(l, lay.Lt-l);
+    const k = d>=endR ? 1 : Math.sqrt(Math.max(0, 1-((endR-d)/endR)**2));
+    const half = t*k/2, h = hAt(l/lay.Lt), span = h - yb;
+    const rr = Math.min(r, half*0.98, span*0.45);
+    const prof = [];
+    for(let j=0;j<=S;j++){ const v = yb + (h-rr-yb)*j/S; prof.push([-half - puff*k*Math.sin(Math.PI*(v-yb)/span), v]); }
+    for(let j=1;j<=A;j++){ const ang = Math.PI - (Math.PI/2)*j/A; prof.push([-half+rr + rr*Math.cos(ang), h-rr + rr*Math.sin(ang)]); }
+    for(let j=1;j<=A;j++){ const ang = Math.PI/2 - (Math.PI/2)*j/A; prof.push([half-rr + rr*Math.cos(ang), h-rr + rr*Math.sin(ang)]); }
+    for(let j=1;j<=S;j++){ prof.push([half, h-rr - (h-rr-yb)*j/S]); }
+    P = prof.length;
+    const c = lay.at(l);
+    prof.forEach(([u,v])=> pos.push(c.x+c.nx*u, v, c.z+c.nz*u));
+  });
+  const idx = [], N = Ls.length-1;
+  for(let i=0;i<N;i++) for(let p=0;p<P-1;p++){
+    const a0=i*P+p, b0=i*P+p+1, c0=(i+1)*P+p+1, d0=(i+1)*P+p;
+    idx.push(a0,c0,b0, a0,d0,c0);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+
+/* D-shaped seat outline: follows the inside of the shell, closed by a bowed front edge */
+function tubSeatOutline(lay, t, bow, inset){
+  const endR = Math.min(t/2, lay.Lt/4), pts = [], M = 64;
+  for(let j=0;j<=M;j++){
+    const l = endR + (lay.Lt-2*endR)*j/M, c = lay.at(l), o = t/2 + inset;
+    pts.push([c.x - c.nx*o, c.z - c.nz*o]);
+  }
+  const p1 = pts[pts.length-1], p0 = pts[0];
+  const apex = lay.at(lay.Lt).z + bow; // front of seat reaches the front of the footprint
+  const mx = (p0[0]+p1[0])/2, mz = 2*apex - (p0[1]+p1[1])/2;
+  for(let j=1;j<24;j++){
+    const s = j/24, q = 1-s;
+    pts.push([q*q*p1[0] + 2*q*s*mx + s*s*p0[0], q*q*p1[1] + 2*q*s*mz + s*s*p0[1]]);
+  }
+  return pts;
+}
+/* Padded slab from any convex outline: rounded edge all round, optional puffed top */
+function outlineCushion(outline, h, r, puff, shrink){
+  let cx=0, cz=0; outline.forEach(([x,z])=>{cx+=x; cz+=z;}); cx/=outline.length; cz/=outline.length;
+  const ring = outline.map(([x,z])=>[cx+(x-cx)*shrink, cz+(z-cz)*shrink]);
+  const minR = Math.min(...ring.map(([x,z])=>Math.hypot(x-cx,z-cz)));
+  const rr = Math.max(0.5, Math.min(r, h/2-0.5, minR*0.4));
+  const T = 10, A = 7, hh = h/2, prof = [];
+  for(let j=0;j<=T;j++) prof.push({s:j/T, e:rr, y:hh, top:true});            // top: centre → edge start
+  for(let j=1;j<=A;j++){ const a=Math.PI/2*(1-j/A); prof.push({s:1, e:rr-rr*Math.cos(a), y:hh-rr+rr*Math.sin(a)}); }
+  prof.push({s:1, e:0, y:-hh+rr});
+  for(let j=1;j<=A;j++){ const a=-Math.PI/2*j/A; prof.push({s:1, e:rr-rr*Math.cos(a), y:-hh+rr+rr*Math.sin(a)}); }
+  for(let j=T-1;j>=0;j--) prof.push({s:j/T, e:rr, y:-hh, bot:true});
+  const pos = [], K = ring.length, P = prof.length;
+  ring.forEach(([bx,bz])=>{
+    const dx=bx-cx, dz=bz-cz, R=Math.hypot(dx,dz);
+    prof.forEach(q=>{
+      const rad = q.s*(R - q.e) / R;
+      let y = q.y;
+      if(q.top) y += puff*(1-q.s*q.s);
+      if(q.bot) y -= puff*0.3*(1-q.s*q.s);
+      pos.push(cx+dx*rad, y, cz+dz*rad);
+    });
+  });
+  const idx = [];
+  for(let k=0;k<K;k++){ const k2=(k+1)%K;
+    for(let p=0;p<P-1;p++){ const a0=k*P+p, b0=k*P+p+1, c0=k2*P+p+1, d0=k2*P+p; idx.push(a0,c0,b0, a0,d0,c0); } }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+  g.setIndex(idx);
+  const m = THREE.BufferGeometryUtils.mergeVertices(g, 0.01); m.computeVertexNormals();
+  return m;
+}
+
+function add(geo, mat, name, x, y, z){
+  const m = new THREE.Mesh(geo, mat); m.name = name; m.position.set(x,y,z);
+  m.castShadow = true; m.receiveShadow = true; model.add(m); return m;
+}
+
+function build(){
+  model.traverse(o=>{ if(o.isMesh) o.geometry.dispose(); });
+  root.remove(model); model = new THREE.Group(); root.add(model);
+  fabricMat.color.set(state.fabric).convertSRGBToLinear();
+  frameMat.color.set(state.fabric).convertSRGBToLinear().multiplyScalar(0.88);
+  const f = FINISHES[state.finish];
+  legMat.color.set(f.color).convertSRGBToLinear(); legMat.metalness=f.metal; legMat.roughness=f.rough;
+
+  const S = state, W=S.W, D=S.D, H=S.H, legH=S.legH, r=S.soft;
+
+  if(isCustom()){ /* no product, shapes only */ }
+  else if(isOtt()){
+    const deckTop = legH + S.baseH;
+    add(roundedBox(W, deckTop-legH, D, r*0.6, 0, 8), frameMat, 'Base', 0, (legH+deckTop)/2, 0);
+    add(roundedBox(W-6, H-deckTop, D-6, r, S.puff, 14), fabricMat, 'Top_Cushion', 0, (deckTop+H)/2, 0);
+    buildLegs(W, D, legH, false);
+  } else if(isTub()){
+    const t = S.shellT, lay = tubLayout(W, D, t, S.wrap, S.bow);
+    const seatTop = S.seatH, deckTop = legH + S.baseH;
+    add(tubShell(lay, t, legH, S.tubStart, S.tubMid, S.tubEnd, r, S.puff*0.6), fabricMat, 'Shell', 0, 0, 0);
+    const outline = tubSeatOutline(lay, t, S.bow, 4);
+    tubOutline = outline;
+    add(outlineCushion(outline, deckTop-legH, Math.min(r*0.4, 20), 0, 1), frameMat, 'Seat_Base', 0, (legH+deckTop)/2, 0);
+    add(outlineCushion(outline, seatTop-deckTop, r, S.puff, 0.995), fabricMat, 'Seat_Cushion', 0, (deckTop+seatTop)/2, 0);
+    buildLegs(W, D, legH, true);
+  } else {
+    const aw = S.arm==='none' ? 0 : S.armW;
+    const IW = W - 2*aw;
+    const seatTop = S.seatH, deckTop = legH + S.baseH;
+    const backT = S.backT, solidBack = S.back!=='cushions';
+    const backTop = solidBack ? H : H - 110;
+    const backR = S.back==='thin' ? Math.min(r, 25, backT/2-1) : r*0.7;
+    add(roundedBox(IW, backTop-legH, backT, backR, S.back==='tight'?S.puff*0.6:0, S.back==='tight'?14:8, 'z'),
+        solidBack?fabricMat:frameMat, 'Back', 0, (legH+backTop)/2, -D/2+backT/2);
+    add(roundedBox(IW, deckTop-legH, D-backT, r*0.5, 0, 8), frameMat, 'Seat_Base', 0, (legH+deckTop)/2, backT/2);
+
+    const gap = 8, cd = D - backT - 6;
+    const ns = S.seats, cw = (IW - gap*(ns-1))/ns;
+    for(let i=0;i<ns;i++){
+      const x = -IW/2 + cw/2 + i*(cw+gap);
+      add(roundedBox(cw, seatTop-deckTop, cd, r, S.puff, 14), fabricMat, 'Seat_Cushion_'+(i+1), x, (deckTop+seatTop)/2, -D/2+backT+cd/2+3);
+    }
+    if(S.back==='cushions'){
+      const nb = S.backs, bw = (IW - gap*(nb-1))/nb;
+      const bt = 160, bh = H - seatTop - 15, th = 12*Math.PI/180;
+      for(let i=0;i<nb;i++){
+        const x = -IW/2 + bw/2 + i*(bw+gap);
+        const m = add(roundedBox(bw, bh, bt, r, S.puff, 14, 'z'), fabricMat, 'Back_Cushion_'+(i+1),
+          x, seatTop + bh/2 - 4, -D/2 + backT + bt/2 + Math.sin(th)*bh*0.3);
+        m.rotation.x = -th;
+      }
+    }
+    if(aw){
+      [-1,1].forEach(s=>{
+        const side = s<0 ? 'Left' : 'Right', x = s*(W/2 - aw/2), armSpan = S.armH - legH;
+        if(S.arm==='rolled'){
+          const rr = aw*0.58, lowH = armSpan - rr;
+          add(roundedBox(aw, lowH, D, r*0.5, 0, 8), frameMat, 'Arm_'+side, x, legH+lowH/2, 0);
+          const roll = add(new THREE.CylinderGeometry(rr, rr, D-4, 32, 1), fabricMat, 'Arm_Roll_'+side, s*(W/2 - rr), S.armH - rr, 0);
+          roll.rotation.x = Math.PI/2;
+        } else {
+          add(roundedBox(aw, armSpan, D, aw<100?Math.min(r,25,aw/2-1):r*0.8, 0, 8), frameMat, 'Arm_'+side, x, legH+armSpan/2, 0);
+        }
+      });
+    }
+    buildLegs(W, D, legH, false);
+  }
+  buildShapes();
+  const bb = overall();
+  document.getElementById('dims').innerHTML = bb ? `${bb.w} × ${bb.d} × ${bb.h} mm<span>Width × depth × height, everything included</span>` : 'Add a shape to start<span>Custom builds start empty</span>';
+}
+
+function buildLegs(W, D, legH, round){
+  const S = state;
+  if(S.leg==='plinth'){
+    if(round) add(outlineCushion(tubOutline, legH, 6, 0, 0.8), legMat, 'Plinth', 0, legH/2, 0);
+    else add(new THREE.BoxGeometry(W-110, legH, D-110), legMat, 'Plinth', 0, legH/2, 0);
+    return;
+  }
+  if(S.leg==='sled'){
+    const sw = round ? W*0.62 : W, sd = round ? D*0.7 : D;
+    [-1,1].forEach((s,k)=>{
+      const x = s*(sw/2-50);
+      [sd/2-50, -sd/2+50].forEach((z,j)=> add(new THREE.CylinderGeometry(11,11,legH,16), legMat, `Sled_Post_${k+1}_${j+1}`, x, legH/2, z));
+      const run = add(new THREE.CylinderGeometry(11,11,sd-100+22,16), legMat, 'Sled_Runner_'+(k+1), x, 11, 0);
+      run.rotation.x = Math.PI/2;
+    });
+    return;
+  }
+  const pts = [];
+  if(round){
+    [45,135,225,315].forEach(dg=>{ const t=dg*Math.PI/180; pts.push([Math.cos(t)*W*0.34, Math.sin(t)*D*0.34]); });
+  } else {
+    const inset = 55;
+    [-1,1].forEach(sx=>[-1,1].forEach(sz=>pts.push([sx*(W/2-inset), sz*(D/2-inset)])));
+    if(W > 1800){ pts.push([0, D/2-inset]); pts.push([0, -D/2+inset]); }
+  }
+  pts.forEach(([x,z],i)=>{
+    const g = S.leg==='tapered' ? new THREE.CylinderGeometry(22,13,legH,20) : new THREE.BoxGeometry(55,legH,55);
+    add(g, legMat, 'Leg_'+(i+1), x, legH/2, z);
+  });
+}
+
+let refit = true, tubOutline = null;
+/* ---------- Shapes ---------- */
+const SHAPE_KINDS = {box:'Box', cyl:'Cylinder', oval:'Oval', dslab:'D-shape'};
+const MATS = {fabric:'Fabric', frame:'Frame shade', legs:'Wood/metal'};
+function overall(){
+  if(!model.children.length) return null;
+  root.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(model), sz = new THREE.Vector3(), c = new THREE.Vector3();
+  b.getSize(sz); b.getCenter(c);
+  return {w:Math.round(sz.x*1000), d:Math.round(sz.z*1000), h:Math.round(b.max.y*1000), cx:c.x*1000, cz:c.z*1000};
+}
+function softCylinder(dia, len, r, puff){
+  const R = dia/2, h = len/2; r = Math.max(0.5, Math.min(r, R-0.5, h-0.5));
+  const pts = [new THREE.Vector2(0.001, -h)], A = 8, S = 16;
+  for(let j=0;j<=A;j++){ const a = -Math.PI/2 + Math.PI/2*j/A; pts.push(new THREE.Vector2(R-r + r*Math.cos(a), -h+r + r*Math.sin(a))); }
+  for(let j=1;j<S;j++){ const y = -h+r + (2*h-2*r)*j/S; pts.push(new THREE.Vector2(R + puff*Math.sin(Math.PI*j/S), y)); }
+  for(let j=0;j<=A;j++){ const a = Math.PI/2*j/A; pts.push(new THREE.Vector2(R-r + r*Math.cos(a), h-r + r*Math.sin(a))); }
+  pts.push(new THREE.Vector2(0.001, h));
+  const g = new THREE.LatheGeometry(pts, 48);
+  g.deleteAttribute('normal'); g.deleteAttribute('uv');
+  const m = THREE.BufferGeometryUtils.mergeVertices(g, 0.01); m.computeVertexNormals(); return m;
+}
+function dOutline(w, d){
+  const pts = [], M = 48;
+  for(let j=0;j<=M;j++){ const t = Math.PI + Math.PI*j/M; pts.push([w/2*Math.cos(t), d/2 + d*Math.sin(t)]); }
+  for(let j=1;j<12;j++){ const s = j/12; pts.push([w/2 - w*s, d/2]); }
+  return pts;
+}
+function shapeGeo(sh){
+  if(sh.kind==='box') return roundedBox(sh.w, sh.h, sh.d, sh.soft, sh.puff, 14);
+  if(sh.kind==='oval') return roundedBox(sh.w, sh.h, sh.d, sh.soft, sh.puff, 16, 'y', true);
+  if(sh.kind==='dslab') return outlineCushion(dOutline(sh.w, sh.d), sh.h, sh.soft, sh.puff, 1);
+  return softCylinder(sh.w, sh.h, sh.soft, sh.puff);
+}
+const selMat = {};
+function buildShapes(){
+  state.shapes.forEach(sh=>{
+    let mat = {fabric:fabricMat, frame:frameMat, legs:legMat}[sh.mat];
+    if(sh.id===state.sel){ const k = sh.mat; selMat[k] = selMat[k] || mat.clone(); selMat[k].copy(mat); selMat[k].name = mat.name;
+      selMat[k].emissive = new THREE.Color(0x6a4a10); selMat[k].emissiveIntensity = .35; mat = selMat[k]; }
+    const lying = sh.kind==='cyl' && sh.lying;
+    const tall = sh.kind==='cyl' ? (lying ? sh.w : sh.h) : sh.h;
+    const pivot = new THREE.Group(); pivot.position.set(sh.x, sh.y + tall/2, sh.z); pivot.rotation.y = -sh.rot*Math.PI/180;
+    const m = new THREE.Mesh(shapeGeo(sh), mat); m.name = sh.name; m.castShadow = m.receiveShadow = true;
+    if(lying) m.rotation.z = Math.PI/2;
+    pivot.add(m); model.add(pivot);
+  });
+}
+function addShape(kind){
+  const n = ++shapeSeq, onProduct = !isCustom();
+  const sh = {id:n, kind, mat:'fabric', x:0, z:0, rot:0, soft:30, puff:10, lying:false,
+    y: onProduct ? state.seatH : 0, name:`${SHAPE_KINDS[kind].replace('-','')}_${n}`};
+  if(kind==='box') Object.assign(sh, {w:500, d:150, h:450});
+  if(kind==='cyl') Object.assign(sh, onProduct ? {w:200, h:600, lying:true, name:'Bolster_'+n} : {w:450, h:420, soft:40});
+  if(kind==='oval') Object.assign(sh, {w:550, d:450, h:160, soft:40, puff:15});
+  if(kind==='dslab') Object.assign(sh, {w:600, d:450, h:140, soft:40, puff:12});
+  if(onProduct && kind==='box') sh.z = -state.D/2 + 260;
+  state.shapes.push(sh); state.sel = sh.id;
+  if(isCustom() && state.shapes.length===1) refit = true;
+  renderShapeUI(); update();
+}
+seg(document.getElementById('addShape'), {box:'+ Box', cyl:'+ Cylinder', oval:'+ Oval', dslab:'+ D-shape'}, '_add');
+[...document.getElementById('addShape').children].forEach((b,i)=>{ const k = Object.keys(SHAPE_KINDS)[i];
+  b.onclick = ()=>addShape(k); b.removeAttribute('aria-pressed'); });
+const selected = ()=> state.shapes.find(s=>s.id===state.sel);
+
+function renderShapeUI(){
+  const list = document.getElementById('shapeList'); list.innerHTML = '';
+  state.shapes.forEach(sh=>{ const b = document.createElement('button'); b.type='button'; b.textContent = sh.name.replace(/_/g,' ');
+    b.setAttribute('aria-pressed', sh.id===state.sel); b.onclick = ()=>{ state.sel = sh.id; renderShapeUI(); update(); }; list.appendChild(b); });
+  const ed = document.getElementById('editor'); ed.innerHTML = ''; ed.className = '';
+  const sh = selected(); if(!sh) return;
+  ed.className = 'editor';
+  const head = document.createElement('div'); head.className='head';
+  head.innerHTML = `<span>${sh.name.replace(/_/g,' ')}</span><div><button class="ghost" type="button">Duplicate</button><button class="ghost" type="button">Delete</button><button class="ghost" type="button">Done</button></div>`;
+  const [dup, del, done] = head.querySelectorAll('button');
+  dup.onclick = ()=>{ const n=++shapeSeq; const c = Object.assign({}, sh, {id:n, x:sh.x+80, z:sh.z+80, name:sh.name.replace(/_\d+$/,'')+'_'+n}); state.shapes.push(c); state.sel=n; renderShapeUI(); update(); };
+  del.onclick = ()=>{ state.shapes = state.shapes.filter(s=>s!==sh); state.sel=null; renderShapeUI(); update(); };
+  done.onclick = ()=>{ state.sel=null; renderShapeUI(); update(); };
+  ed.appendChild(head);
+  if(sh.kind==='cyl'){
+    const o = document.createElement('div'); o.className='seg'; o.style.margin='8px 0 2px';
+    [['Upright',false],['Lying (bolster)',true]].forEach(([l,v])=>{ const b=document.createElement('button'); b.type='button'; b.textContent=l;
+      b.setAttribute('aria-pressed', sh.lying===v); b.onclick=()=>{ sh.lying=v; renderShapeUI(); update(); }; o.appendChild(b); });
+    ed.appendChild(o);
+  }
+  const rows = sh.kind==='cyl'
+    ? [['w','Diameter',60,1200,5,' mm'],['h','Length',60,2500,5,' mm']]
+    : [['w','Width',60,2500,5,' mm'],['d','Depth',60,2000,5,' mm'],['h','Thickness / height',20,1200,5,' mm']];
+  rows.push(['y','Height off floor',0,1200,5,' mm'],['rot','Rotation',0,355,5,'°'],['soft','Corner softness',2,150,1,''],['puff','Puffiness',0,60,1,'']);
+  rows.forEach(([k,label,min,max,step,unit])=>{
+    ed.appendChild(makeRow(label, min, max, step, unit, ()=>sh[k], v=>{ sh[k]=v; update(); }).row);
+  });
+  const mats = document.createElement('div'); mats.className='seg'; mats.style.marginTop='8px';
+  Object.entries(MATS).forEach(([k,l])=>{ const b=document.createElement('button'); b.type='button'; b.textContent=l;
+    b.setAttribute('aria-pressed', sh.mat===k); b.onclick=()=>{ sh.mat=k; renderShapeUI(); update(); }; mats.appendChild(b); });
+  ed.appendChild(mats);
+}
+
+/* plan view: top-down, front of the product at the bottom */
+const plan = document.getElementById('plan');
+let planView = {x0:-1000, z0:-700, sc:0.15};
+function footprint(sh){
+  const lying = sh.kind==='cyl' && sh.lying;
+  if(sh.kind==='cyl') return lying ? {kind:'rect', w:sh.h, d:sh.w} : {kind:'ell', w:sh.w, d:sh.w};
+  if(sh.kind==='oval') return {kind:'ell', w:sh.w, d:sh.d};
+  if(sh.kind==='dslab') return {kind:'d', w:sh.w, d:sh.d};
+  return {kind:'rect', w:sh.w, d:sh.d};
+}
+function drawPlan(){
+  const VW = 300, VH = 220, pad = 18;
+  let minX=-400, maxX=400, minZ=-300, maxZ=300;
+  if(!isCustom()){ minX=Math.min(minX,-state.W/2); maxX=Math.max(maxX,state.W/2); minZ=Math.min(minZ,-state.D/2); maxZ=Math.max(maxZ,state.D/2); }
+  state.shapes.forEach(sh=>{ const f=footprint(sh), r=Math.hypot(f.w,f.d)/2; minX=Math.min(minX,sh.x-r); maxX=Math.max(maxX,sh.x+r); minZ=Math.min(minZ,sh.z-r); maxZ=Math.max(maxZ,sh.z+r); });
+  if(!dragging){
+    const sc = Math.min((VW-2*pad)/(maxX-minX), (VH-2*pad)/(maxZ-minZ));
+    planView = {sc, x0:(minX+maxX)/2 - (VW/2)/sc, z0:(minZ+maxZ)/2 - (VH/2)/sc};
+  }
+  const P = planView, X = x=>(x-P.x0)*P.sc, Z = z=>(z-P.z0)*P.sc;
+  let h = '';
+  if(!isCustom()) h += `<rect class="foot" x="${X(-state.W/2)}" y="${Z(-state.D/2)}" width="${state.W*P.sc}" height="${state.D*P.sc}" rx="4"/>`;
+  h += `<text x="${VW/2}" y="${VH-4}" text-anchor="middle">Front</text>`;
+  state.shapes.forEach(sh=>{
+    const f = footprint(sh), cls = 'shp'+(sh.id===state.sel?' sel':''), w=f.w*P.sc, d=f.d*P.sc;
+    let el;
+    if(f.kind==='ell') el = `<ellipse cx="0" cy="0" rx="${w/2}" ry="${d/2}"/>`;
+    else if(f.kind==='d') el = `<path d="M ${-w/2} ${d/2} L ${w/2} ${d/2} A ${w/2} ${d} 0 0 0 ${-w/2} ${d/2} Z"/>`;
+    else el = `<rect x="${-w/2}" y="${-d/2}" width="${w}" height="${d}" rx="3"/>`;
+    h += `<g class="${cls}" data-id="${sh.id}" transform="translate(${X(sh.x)} ${Z(sh.z)}) rotate(${sh.rot})">${el}</g>`;
+  });
+  plan.innerHTML = h;
+}
+let dragging = null, pending = false;
+function planPoint(e){ const r = plan.getBoundingClientRect(), k = 300/r.width; return {x:(e.clientX-r.left)*k/planView.sc, z:(e.clientY-r.top)*k/planView.sc}; }
+plan.addEventListener('pointerdown', e=>{
+  const g = e.target.closest('g[data-id]');
+  if(!g){ if(state.sel!==null){ state.sel=null; renderShapeUI(); update(); } return; }
+  const sh = state.shapes.find(s=>s.id===+g.dataset.id); if(!sh) return;
+  if(state.sel!==sh.id){ state.sel = sh.id; renderShapeUI(); update(); }
+  const p = planPoint(e); dragging = {sh, dx:sh.x-p.x, dz:sh.z-p.z};
+  plan.setPointerCapture(e.pointerId); e.preventDefault();
+});
+plan.addEventListener('pointermove', e=>{
+  if(!dragging) return; const p = planPoint(e);
+  dragging.sh.x = Math.round((p.x+dragging.dx)/5)*5; dragging.sh.z = Math.round((p.z+dragging.dz)/5)*5;
+  if(!pending){ pending = true; requestAnimationFrame(()=>{ pending=false; build(); drawPlan(); }); }
+});
+const endDrag = ()=>{ if(dragging){ dragging=null; update(); } };
+plan.addEventListener('pointerup', endDrag); plan.addEventListener('pointercancel', endDrag);
+
+
+function fit(){
+  const bb = overall() || {w:1200, d:1200, h:600, cx:0, cz:0};
+  const span = Math.max(bb.w, bb.d, bb.h)/1000;
+  controls.target.set(bb.cx/1000, bb.h/2000, bb.cz/1000);
+  const dir = new THREE.Vector3(0.62, 0.42, 0.86).normalize();
+  camera.position.copy(controls.target).addScaledVector(dir, span*2.6 + 0.6);
+  controls.update();
+}
+function update(){ normalize(); build(); drawPlan(); if(refit){ fit(); refit=false; } }
+
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+(function loop(){ controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+
+/* ---------- OBJ export ---------- */
+function toHex(c){ const k=c.clone().convertLinearToSRGB(); return [k.r,k.g,k.b].map(n=>n.toFixed(4)).join(' '); }
+function makeOBJ(base, unit){
+  const s = {mm:1, cm:0.1, m:0.001}[unit];
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(model.matrixWorld).invert();
+  const out = [`# Soft furniture prototype — ${base}`, `# Units: ${unit}`, `mtllib ${base}.mtl`];
+  const v = new THREE.Vector3(), nm = new THREE.Matrix3();
+  const pa = new THREE.Vector3(), pb = new THREE.Vector3(), pc = new THREE.Vector3();
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), fn = new THREE.Vector3();
+  let off = 1, toff = 1;
+  /* box-project texture coordinates per face, 1 unit = 1 metre, so library fabrics tile at real scale */
+  const uvFor = (p, ax)=> ax==='x' ? [p.z/1000, p.y/1000] : ax==='y' ? [p.x/1000, p.z/1000] : [p.x/1000, p.y/1000];
+  model.traverse(m=>{
+    if(!m.isMesh) return;
+    const rel = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+    nm.getNormalMatrix(rel);
+    const g = m.geometry, pos = g.attributes.position, nor = g.attributes.normal;
+    out.push(`o ${m.name}`, `usemtl ${m.material.name}`, 's 1');
+    for(let i=0;i<pos.count;i++){ v.fromBufferAttribute(pos,i).applyMatrix4(rel).multiplyScalar(s); out.push(`v ${v.x.toFixed(4)} ${v.y.toFixed(4)} ${v.z.toFixed(4)}`); }
+    for(let i=0;i<nor.count;i++){ v.fromBufferAttribute(nor,i).applyMatrix3(nm).normalize(); out.push(`vn ${v.x.toFixed(4)} ${v.y.toFixed(4)} ${v.z.toFixed(4)}`); }
+    const idx = g.index ? g.index.array : null, n = idx ? idx.length : pos.count;
+    const faces = [];
+    for(let i=0;i<n;i+=3){
+      const ia=idx?idx[i]:i, ib=idx?idx[i+1]:i+1, ic=idx?idx[i+2]:i+2;
+      pa.fromBufferAttribute(pos,ia).applyMatrix4(rel);
+      pb.fromBufferAttribute(pos,ib).applyMatrix4(rel);
+      pc.fromBufferAttribute(pos,ic).applyMatrix4(rel);
+      fn.crossVectors(e1.subVectors(pb,pa), e2.subVectors(pc,pa));
+      const ax = Math.abs(fn.x)>=Math.abs(fn.y) && Math.abs(fn.x)>=Math.abs(fn.z) ? 'x' : (Math.abs(fn.y)>=Math.abs(fn.z) ? 'y' : 'z');
+      [pa,pb,pc].forEach(p=>{ const [u,w]=uvFor(p,ax); out.push(`vt ${u.toFixed(4)} ${w.toFixed(4)}`); });
+      const a=ia+off, b=ib+off, c=ic+off;
+      faces.push(`f ${a}/${toff}/${a} ${b}/${toff+1}/${b} ${c}/${toff+2}/${c}`);
+      toff += 3;
+    }
+    out.push(...faces);
+    off += pos.count;
+  });
+  const mtl = [fabricMat, frameMat, legMat].map(m=>
+    `newmtl ${m.name}\nKa 0 0 0\nKd ${toHex(m.color)}\nKs ${m.metalness>.5?'0.6 0.6 0.6':'0.02 0.02 0.02'}\nNs ${m.metalness>.5?200:5}\nd 1\nillum 2\n`).join('\n');
+  return {obj: out.join('\n')+'\n', mtl};
+}
+
+let downloads = null;
+const inClaude = !!(window.claude && typeof window.claude.use==='function');
+if(window.claude && typeof window.claude.use==='function'){
+  window.claude.use('downloads').then(d=>{ downloads = d; }).catch(()=>{});
+}
+const msg = document.getElementById('msg');
+document.getElementById('exportBtn').onclick = async ()=>{
+  const unit = document.getElementById('unit').value;
+  const bb = overall(); if(!bb){ msg.textContent = 'Nothing to export yet — add a shape first.'; return; }
+  const base = `${state.type}-${bb.w}x${bb.d}x${bb.h}`;
+  const {obj, mtl} = makeOBJ(base, unit);
+  const zip = new JSZip(); zip.file(base+'.obj', obj); zip.file(base+'.mtl', mtl);
+  const blob = await zip.generateAsync({type:'blob'});
+  if(!downloads){
+    if(inClaude){ msg.textContent = 'Downloads aren’t available in this view. Open the published page to export.'; return; }
+    // hosted on its own site (e.g. Netlify): a normal browser download works
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = base+'.zip';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    msg.textContent = 'Saved '+base+'.zip — unzip it and import the .obj into Live Home 3D.'; return;
+  }
+  msg.textContent = '';
+  try{
+    await downloads.save({filename: base+'.zip', data: blob});
+    msg.textContent = 'Saved '+base+'.zip — unzip it and import the .obj into Live Home 3D.';
+  }catch(e){
+    msg.textContent = e && e.code==='declined' ? 'Download cancelled.' : 'The download didn’t go through ('+(e&&e.code||'error')+').';
+  }
+};
+
+update();
+})();
+</script>
+</body>
+</html>
